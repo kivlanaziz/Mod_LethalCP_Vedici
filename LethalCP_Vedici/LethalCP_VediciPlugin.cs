@@ -1,7 +1,11 @@
 ﻿using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
+using GameNetcodeStuff;
 using HarmonyLib;
+using System;
+using System.Runtime.CompilerServices;
+using System.Threading;
 using UnityEngine;
 
 namespace LethalCP_Vedici
@@ -23,59 +27,41 @@ namespace LethalCP_Vedici
         // Config entry key strings
         // These will appear in the config file created by BepInEx and can also be used
         // by the OnSettingsChange event to determine which setting has changed.
-        public static string FloatExampleKey = "Float Example Key";
-        public static string IntExampleKey = "Int Example Key";
-        public static string KeyboardShortcutExampleKey = "Recall Keyboard Shortcut";
+        private static string cfgNightVisionKey = "Night Vision Configuration";
+        private static string HideCommandMessagesKey = "Toggle Hide Command Messages";
 
         // Configuration entries. Static, so can be accessed directly elsewhere in code via
         // e.g.
         // float myFloat = LethalCP_VediciPlugin.FloatExample.Value;
         // TODO Change this code or remove the code if not required.
-        public static ConfigEntry<float> FloatExample;
-        public static ConfigEntry<int> IntExample;
-        public static ConfigEntry<KeyboardShortcut> KeyboardShortcutExample;
+        private static ConfigEntry<bool> cfgNightVision;
+        private static ConfigEntry<bool> HideCommandMessages;
 
         private static readonly Harmony Harmony = new Harmony(MyGUID);
         public static ManualLogSource Log = new ManualLogSource(PluginName);
+        public static ManualLogSource mls;
 
+        private static PlayerControllerB playerRef;
+        private static bool nightVision;
+        private static float nightVisionIntensity;
+        private static float nightVisionRange;
+        private static UnityEngine.Color nightVisionColor;
+        private static bool isHost = true;
         /// <summary>
         /// Initialise the configuration settings and patch methods
         /// </summary>
         private void Awake()
         {
-            // Float configuration setting example
-            // TODO Change this code or remove the code if not required.
-            FloatExample = Config.Bind("General",    // The section under which the option is shown
-                FloatExampleKey,                            // The key of the configuration option
-                1.0f,                            // The default value
-                new ConfigDescription("Example float configuration setting.",         // Description that appears in Configuration Manager
-                    new AcceptableValueRange<float>(0.0f, 10.0f)));     // Acceptable range, enabled slider and validation in Configuration Manager
-
-            // Int setting example
-            // TODO Change this code or remove the code if not required.
-            IntExample = Config.Bind("General",
-                IntExampleKey,
-                1,
-                new ConfigDescription("Example int configuration setting.",
-                    new AcceptableValueRange<int>(0, 10)));
-
-            // Keyboard shortcut setting example
-            // TODO Change this code or remove the code if not required.
-            KeyboardShortcutExample = Config.Bind("General",
-                KeyboardShortcutExampleKey,
-                new KeyboardShortcut(KeyCode.A, KeyCode.LeftControl));
-
-            // Add listeners methods to run if and when settings are changed by the player.
-            // TODO Change this code or remove the code if not required.
-            FloatExample.SettingChanged += ConfigSettingChanged;
-            IntExample.SettingChanged += ConfigSettingChanged;
-            KeyboardShortcutExample.SettingChanged += ConfigSettingChanged;
+            cfgNightVision = Config.Bind("Settings", cfgNightVisionKey, false);
+            HideCommandMessages = Config.Bind("Settings", HideCommandMessagesKey, false);
 
             // Apply all of our patches
             Logger.LogInfo($"PluginName: {PluginName}, VersionString: {VersionString} is loading...");
-            Harmony.PatchAll();
+            Harmony.PatchAll(typeof(LethalCP_VediciPlugin));
+            Harmony.PatchAll(typeof(PlayerControllerB));
             Logger.LogInfo($"PluginName: {PluginName}, VersionString: {VersionString} is loaded.");
 
+            cfgNightVision.SettingChanged += nightVisionCFGChanged;
             // Sets up our static Log, so it can be used elsewhere in code.
             // .e.g.
             // LethalCP_VediciPlugin.Log.LogDebug("Debug Message to BepInEx log file");
@@ -89,11 +75,7 @@ namespace LethalCP_Vedici
         // TODO - Add your code here or remove this section if not required.
         private void Update()
         {
-            if (LethalCP_VediciPlugin.KeyboardShortcutExample.Value.IsDown())
-            {
-                // Code here to do something on keypress
-                Logger.LogInfo("Keypress detected!");
-            }
+            
         }
 
         /// <summary>
@@ -110,29 +92,132 @@ namespace LethalCP_Vedici
             {
                 return;
             }
+        }
 
-            // Example Float Shortcut setting changed handler
-            if (settingChangedEventArgs.ChangedSetting.Definition.Key == FloatExampleKey)
+        private void nightVisionCFGChanged(object sender, EventArgs e)
+        {
+            if (!isHost)
             {
-                // TODO - Add your code here or remove this section if not required.
-                // Code here to do something with the new value
+                return;
+            }
+            nightVision = cfgNightVision.Value;
+        }
+
+        [HarmonyPatch(typeof(PlayerControllerB), "Start")]
+        [HarmonyPrefix]
+        static void getNightVision(ref PlayerControllerB __instance)
+        {
+            playerRef = __instance;
+            nightVision = playerRef.nightVision.enabled;
+            // store nightvision values
+            nightVisionIntensity = playerRef.nightVision.intensity;
+            nightVisionColor = playerRef.nightVision.color;
+            nightVisionRange = playerRef.nightVision.range;
+
+            playerRef.nightVision.color = UnityEngine.Color.green;
+            playerRef.nightVision.intensity = 1000f;
+            playerRef.nightVision.range = 10000f;
+        }
+
+        [HarmonyPatch(typeof(PlayerControllerB), "SetNightVisionEnabled")]
+        [HarmonyPostfix]
+        static void updateNightVision()
+        {
+            //instead of enabling/disabling nightvision, set the variables
+
+            if (nightVision)
+            {
+                playerRef.nightVision.color = UnityEngine.Color.green;
+                playerRef.nightVision.intensity = 1000f;
+                playerRef.nightVision.range = 10000f;
+            }
+            else
+            {
+                playerRef.nightVision.color = nightVisionColor;
+                playerRef.nightVision.intensity = nightVisionIntensity;
+                playerRef.nightVision.range = nightVisionRange;
             }
 
-            // Example Int Shortcut setting changed handler
-            if (settingChangedEventArgs.ChangedSetting.Definition.Key == IntExampleKey)
+            // should always be on
+            playerRef.nightVision.enabled = true;
+        }
+
+        //[HarmonyPatch(typeof(HUDManager), "SubmitChat_performed")]
+        //[HarmonyPrefix]
+        //static void chatCommand(HUDManager __instance)
+        //{
+        //    try
+        //    {
+        //        if (__instance == null)
+        //        {
+        //            return;
+        //        }
+
+        //        string text = __instance.chatTextField.text;
+        //        if (text == null)
+        //        {
+        //            return;
+        //        }
+        //        // make prefix even if one doesn't exist
+        //        string tempPrefix = "/";
+        //        mls.LogInfo(text);
+
+        //        // check if prefix is utilized
+        //        if (text.ToLower().StartsWith(tempPrefix.ToLower()))
+        //        {
+        //            string noticeTitle = "Default Title";
+        //            string noticeBody = "Default Body";
+
+        //            if (!isHost)
+        //            {
+        //                noticeTitle = "Command";
+        //                noticeBody = "Unable to send command since you are not host.";
+        //                HUDManager.Instance.DisplayTip(noticeTitle, noticeBody);
+        //                if (HideCommandMessages.Value)
+        //                {
+        //                    __instance.chatTextField.text = "";
+        //                }
+        //                return;
+        //            }
+        //            if (text.ToLower().Contains("night") || text.ToLower().Contains("vision"))
+        //            {
+        //                if (toggleNightVision())
+        //                {
+        //                    noticeBody = "Enabled Night Vision";
+        //                }
+        //                else
+        //                {
+        //                    noticeBody = "Disabled Night Vision";
+        //                }
+        //                noticeTitle = "Night Vision";
+        //            }
+        //            // sends notice to user about what they have done
+        //            //HUDManager.Instance.DisplayTip(noticeTitle, noticeBody);
+
+        //            // ensures value is hidden if set but path doesn't hide it
+        //            if (HideCommandMessages.Value)
+        //            {
+        //                __instance.chatTextField.text = "";
+        //            }
+        //            return;
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        mls.LogError(ex);
+        //        return;
+        //    }
+        //}
+
+        private static bool toggleNightVision()
+        {
+            if (isHost)
             {
-                // TODO - Add your code here or remove this section if not required.
-                // Code here to do something with the new value
+                nightVision = !nightVision;
+                cfgNightVision.Value = nightVision;
             }
 
-            // Example Keyboard Shortcut setting changed handler
-            if (settingChangedEventArgs.ChangedSetting.Definition.Key == KeyboardShortcutExampleKey)
-            {
-                KeyboardShortcut newValue = (KeyboardShortcut)settingChangedEventArgs.ChangedSetting.BoxedValue;
-
-                // TODO - Add your code here or remove this section if not required.
-                // Code here to do something with the new value
-            }
+            return nightVision;
         }
     }
 }
