@@ -36,6 +36,8 @@ namespace LethalCP_Vedici
         private static string UseRandomTimeScaleKey = "Toggle Random Time Scale";
         private static string MaximumTimeScaleKey = "Maximum Time Scale (Will use this value when random time scale is disabled)";
         private static string MinimumTimeScaleKey = "Minimum Time Scale";
+        private static string NightVisionIntensityKey = "Brightness level of night vision";
+        private static string NightVisionRangeKey = "Range of night vision";
 
         // Configuration entries. Static, so can be accessed directly elsewhere in code via
         // e.g.
@@ -47,6 +49,8 @@ namespace LethalCP_Vedici
         private static ConfigEntry<bool> UseRandomTimeScale;
         private static ConfigEntry<float> MaximumTimeScale;
         private static ConfigEntry<float> MinimumTimeScale;
+        private static ConfigEntry<float> NightVisionIntensity;
+        private static ConfigEntry<float> NightVisionRange;
         #endregion
 
         private static readonly Harmony Harmony = new Harmony(MyGUID);
@@ -54,8 +58,8 @@ namespace LethalCP_Vedici
 
         private static PlayerControllerB playerRef;
         private static bool nightVision;
-        private static float nightVisionIntensity;
-        private static float nightVisionRange;
+        private static float defaultNightVisionIntensity;
+        private static float defaultNightVisionRange;
         private static UnityEngine.Color nightVisionColor;
         private static bool isHost = true;
         /// <summary>
@@ -69,6 +73,8 @@ namespace LethalCP_Vedici
             UseRandomTimeScale = Config.Bind("Time Settings", UseRandomTimeScaleKey, false);
             MaximumTimeScale = Config.Bind("Time Settings", MaximumTimeScaleKey, 2f);
             MinimumTimeScale = Config.Bind("Time Settings", MinimumTimeScaleKey, 0.5f);
+            NightVisionIntensity = Config.Bind("Player Settings", NightVisionIntensityKey, 1000f);
+            NightVisionRange = Config.Bind("Player Settings", NightVisionRangeKey, 10000f);
 
             // Apply all of our patches
             Logger.LogInfo($"PluginName: {PluginName}, VersionString: {VersionString} is loading...");
@@ -144,9 +150,9 @@ namespace LethalCP_Vedici
             playerRef = __instance;
             nightVision = playerRef.nightVision.enabled;
             // store nightvision values
-            nightVisionIntensity = playerRef.nightVision.intensity;
+            defaultNightVisionIntensity = playerRef.nightVision.intensity;
             nightVisionColor = playerRef.nightVision.color;
-            nightVisionRange = playerRef.nightVision.range;
+            defaultNightVisionRange = playerRef.nightVision.range;
 
             playerRef.nightVision.color = UnityEngine.Color.green;
             playerRef.nightVision.intensity = 1000f;
@@ -165,14 +171,14 @@ namespace LethalCP_Vedici
             if (nightVision)
             {
                 playerRef.nightVision.color = UnityEngine.Color.green;
-                playerRef.nightVision.intensity = 1000f;
-                playerRef.nightVision.range = 10000f;
+                playerRef.nightVision.intensity = NightVisionIntensity.Value;
+                playerRef.nightVision.range = NightVisionRange.Value;
             }
             else
             {
                 playerRef.nightVision.color = nightVisionColor;
-                playerRef.nightVision.intensity = nightVisionIntensity;
-                playerRef.nightVision.range = nightVisionRange;
+                playerRef.nightVision.intensity = defaultNightVisionIntensity;
+                playerRef.nightVision.range = defaultNightVisionRange;
             }
             // should always be on
             playerRef.nightVision.enabled = true;
