@@ -42,7 +42,7 @@ namespace LethalCP_Vedici
         // 1.0.0
         private const string MyGUID = "com.kivlan.LethalCP_Vedici";
         private const string PluginName = "LethalCP_Vedici";
-        private const string VersionString = "1.0.4";
+        private const string VersionString = "1.0.5";
         #endregion
         #region config manager
         // Config entry key strings
@@ -276,12 +276,12 @@ namespace LethalCP_Vedici
                 float x = __instance.sprintMeter - currentStaminaMeter;
                 if (x < 0f)
                 {
-                    LethalCP_VediciPlugin.Log.LogInfo($"Sprint Detected x: {x}. Meter: {__instance.sprintMeter}");
+                    //LethalCP_VediciPlugin.Log.LogInfo($"Sprint Detected x: {x}. Meter: {__instance.sprintMeter}");
                     __instance.sprintMeter = Mathf.Max(__instance.sprintMeter + x / MaxStaminaMultiplier.Value, 0f);
                 }
                 else if (x > 0f)
                 {
-                    LethalCP_VediciPlugin.Log.LogInfo($"Walk Detected x: {x}. Meter: {__instance.sprintMeter}");
+                    //LethalCP_VediciPlugin.Log.LogInfo($"Walk Detected x: {x}. Meter: {__instance.sprintMeter}");
                     __instance.sprintMeter = Mathf.Min(__instance.sprintMeter + x * StaminaRegenMultiplier.Value, 1f);
                 }
             }
@@ -314,12 +314,12 @@ namespace LethalCP_Vedici
                 float x = __instance.sprintMeter - currentStaminaMeter;
                 if (x < 0f)
                 {
-                    LethalCP_VediciPlugin.Log.LogInfo($"Sprint Detected x: {x}. Meter: {__instance.sprintMeter}");
+                    //LethalCP_VediciPlugin.Log.LogInfo($"Sprint Detected x: {x}. Meter: {__instance.sprintMeter}");
                     __instance.sprintMeter = Mathf.Max(__instance.sprintMeter + x / MaxStaminaMultiplier.Value, 0f);
                 }
                 else if (x > 0f)
                 {
-                    LethalCP_VediciPlugin.Log.LogInfo($"Walk Detected x: {x}. Meter: {__instance.sprintMeter}");
+                    //LethalCP_VediciPlugin.Log.LogInfo($"Walk Detected x: {x}. Meter: {__instance.sprintMeter}");
                     __instance.sprintMeter = Mathf.Min(__instance.sprintMeter + x * StaminaRegenMultiplier.Value, 1f);
                 }
             }
@@ -386,6 +386,12 @@ namespace LethalCP_Vedici
                     string currentTime = HUDManager.Instance.SetClock(TimeOfDay.Instance.normalizedTimeOfDay, TimeOfDay.Instance.numberOfHours, false);
                     noticeTitle = "Scan Result";
                     noticeBody = $"Time at: {currentTime}";
+                }
+                if (text.ToLower().Contains("countenemy"))
+                {
+                    int approximateEnemy = UnityEngine.Object.FindObjectsOfType<EnemyAI>().Count();
+                    noticeTitle = "Scan Result";
+                    noticeBody = $"There are approximately {approximateEnemy} enemy detected! (includes docile, turret & landmine)";
                 }
                 // sends notice to user about what they have done
                 HUDManager.Instance.DisplayTip(noticeTitle, noticeBody);
