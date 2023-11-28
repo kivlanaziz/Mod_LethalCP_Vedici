@@ -1,13 +1,30 @@
-﻿using BepInEx;
-using BepInEx.Configuration;
-using BepInEx.Logging;
-using GameNetcodeStuff;
-using HarmonyLib;
-using System;
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Net.NetworkInformation;
 using System.Runtime.CompilerServices;
-using System.Threading;
+using System.Text;
+using System.Threading.Tasks;
+using BepInEx;
+using BepInEx.Logging;
+using DunGen;
+using HarmonyLib;
 using UnityEngine;
+using UnityEngine.Assertions;
+using UnityEngine.Assertions.Must;
+using UnityEngine.SceneManagement;
 using Random = UnityEngine.Random;
+using Steamworks;
+using Steamworks.Data;
+using System.Collections;
+using System.Security.AccessControl;
+using GameNetcodeStuff;
+using BepInEx.Configuration;
+using System.Reflection;
+using Unity.Netcode;
+using static System.Net.Mime.MediaTypeNames;
+using Steamworks.Ugc;
 
 namespace LethalCP_Vedici
 {
@@ -24,7 +41,7 @@ namespace LethalCP_Vedici
         // 1.0.0
         private const string MyGUID = "com.kivlan.LethalCP_Vedici";
         private const string PluginName = "LethalCP_Vedici";
-        private const string VersionString = "1.0.0";
+        private const string VersionString = "1.0.2";
         #endregion
         #region config manager
         // Config entry key strings
@@ -220,56 +237,69 @@ namespace LethalCP_Vedici
                 HUDManager.Instance.DisplayTip(noticeTitle, noticeBody);
             }
         }
-        //[HarmonyPatch(typeof(HUDManager), "SubmitChat_performed")]
-        //[HarmonyPrefix]
-        //static void chatCommand(HUDManager __instance)
-        //{
-        //    string text = __instance.chatTextField.text;
-        //    // make prefix even if one doesn't exist
-        //    string tempPrefix = "/";
-        //    mls.LogInfo(text);
 
-        //    // check if prefix is utilized
-        //    if (text.ToLower().StartsWith(tempPrefix.ToLower()))
-        //    {
-        //        string noticeTitle = "Default Title";
-        //        string noticeBody = "Default Body";
+        /// <summary>
+        /// Method to listen to commands from text chat (require host)
+        /// </summary>
+        /// <param name="__instance"></param>
+        [HarmonyPatch(typeof(HUDManager), "SubmitChat_performed")]
+        [HarmonyPrefix]
+        static void chatCommand(HUDManager __instance)
+        {
+            string text = __instance.chatTextField.text;
+            // make prefix even if one doesn't exist
+            string tempPrefix = "/";
+            LethalCP_VediciPlugin.Log.LogInfo(text);
 
-        //        if (!isHost)
-        //        {
-        //            noticeTitle = "Command";
-        //            noticeBody = "Unable to send command since you are not host.";
-        //            HUDManager.Instance.DisplayTip(noticeTitle, noticeBody);
-        //            if (HideCommandMessages.Value)
-        //            {
-        //                __instance.chatTextField.text = "";
-        //            }
-        //            return;
-        //        }
-        //        if (text.ToLower().Contains("night") || text.ToLower().Contains("vision"))
-        //        {
-        //            if (toggleNightVision())
-        //            {
-        //                noticeBody = "Enabled Night Vision";
-        //            }
-        //            else
-        //            {
-        //                noticeBody = "Disabled Night Vision";
-        //            }
-        //            noticeTitle = "Night Vision";
-        //        }
-        //        // sends notice to user about what they have done
-        //        HUDManager.Instance.DisplayTip(noticeTitle, noticeBody);
+            // check if prefix is utilized
+            if (text.ToLower().StartsWith(tempPrefix.ToLower()))
+            {
+                string noticeTitle = "Default Title";
+                string noticeBody = "Default Body";
 
-        //        // ensures value is hidden if set but path doesn't hide it
-        //        if (HideCommandMessages.Value)
-        //        {
-        //            __instance.chatTextField.text = "";
-        //        }
-        //        return;
-        //    }
-        //}
+                if (!isHost)
+                {
+                    noticeTitle = "Command";
+                    noticeBody = "Unable to send command since you are not host.";
+                    HUDManager.Instance.DisplayTip(noticeTitle, noticeBody);
+                    if (HideCommandMessages.Value)
+                    {
+                        __instance.chatTextField.text = "";
+                    }
+                    return;
+                }
+                if (text.ToLower().Contains("night") || text.ToLower().Contains("vision"))
+                {
+                    if (toggleNightVision())
+                    {
+                        noticeBody = "Enabled Night Vision";
+                    }
+                    else
+                    {
+                        noticeBody = "Disabled Night Vision";
+                    }
+                    noticeTitle = "Night Vision";
+                }
+                if (text.ToLower().Contains("scan"))
+                {
+                    int totalItems = 0, totalValue = 0;
+                    findItemsOutsideShip(out totalItems, out totalValue);
+                    noticeTitle = "Scan Result";
+                    noticeBody = $"There are {totalItems} objects outside the ship, totalling at an approximate value of ${totalValue}.";
+                }
+                // sends notice to user about what they have done
+                HUDManager.Instance.DisplayTip(noticeTitle, noticeBody);
 
+                // ensures value is hidden if set but path doesn't hide it
+                if (HideCommandMessages.Value)
+                {
+                    __instance.chatTextField.text = "";
+                }
+                return;
+            }
+        }
+
+        #region internal method
         /// <summary>
         /// Method to toggle night vision status
         /// </summary>
@@ -293,5 +323,29 @@ namespace LethalCP_Vedici
 
             return nightVision;
         }
+
+        /// <summary>
+        /// Method to find grabable items outside ship
+        /// </summary>
+        /// <param name="totalItems"></param>
+        /// <param name="totalValue"></param>
+        private static void findItemsOutsideShip(out int totalItems, out int totalValue)
+        {
+            System.Random random = new System.Random(StartOfRound.Instance.randomMapSeed + 91);
+            totalValue = 0;
+            totalItems = 0;
+            int num4 = 0;
+            GrabbableObject[] array = UnityEngine.Object.FindObjectsOfType<GrabbableObject>();
+            for (int num5 = 0; num5 < array.Length; num5++)
+            {
+                if (array[num5].itemProperties.isScrap && !array[num5].isInShipRoom && !array[num5].isInElevator)
+                {
+                    num4 += array[num5].itemProperties.maxValue - array[num5].itemProperties.minValue;
+                    totalValue += Mathf.Clamp(random.Next(array[num5].itemProperties.minValue, array[num5].itemProperties.maxValue), array[num5].scrapValue - 6 * num5, array[num5].scrapValue + 9 * num5);
+                    totalItems++;
+                }
+            }
+        }
+        #endregion
     }
 }
