@@ -56,6 +56,9 @@ namespace LethalCP_Vedici
         private static string MinimumTimeScaleKey = "Minimum Time Scale";
         private static string NightVisionIntensityKey = "Brightness level of night vision";
         private static string NightVisionRangeKey = "Range of night vision";
+        private static string SpeedMultiplierKey = "Sprint Speed Multiplier";
+        private static string MaxStaminaMultiplierKey = "Max Stamina Multiplier";
+        private static string StaminaRegenMultiplierKey = "Stamina Regen Multiplier";
 
         // Configuration entries. Static, so can be accessed directly elsewhere in code via
         // e.g.
@@ -69,6 +72,9 @@ namespace LethalCP_Vedici
         private static ConfigEntry<float> MinimumTimeScale;
         private static ConfigEntry<float> NightVisionIntensity;
         private static ConfigEntry<float> NightVisionRange;
+        private static ConfigEntry<float> SpeedMultiplier;
+        private static ConfigEntry<float> MaxStaminaMultiplier;
+        private static ConfigEntry<float> StaminaRegenMultiplier;
         #endregion
 
         private static readonly Harmony Harmony = new Harmony(MyGUID);
@@ -80,19 +86,23 @@ namespace LethalCP_Vedici
         private static float defaultNightVisionRange;
         private static UnityEngine.Color nightVisionColor;
         private static bool isHost = true;
+        private static float currentStaminaMeter;
         /// <summary>
         /// Initialise the configuration settings and patch methods
         /// </summary>
         private void Awake()
         {
             cfgNightVision = Config.Bind("Player Settings", cfgNightVisionKey, false);
-            HideCommandMessages = Config.Bind("UI Settings", HideCommandMessagesKey, false);
+            HideCommandMessages = Config.Bind("UI Settings", HideCommandMessagesKey, true);
             CustomTimeScale = Config.Bind("Time Settings", CustomTimeScaleKey, false);
             UseRandomTimeScale = Config.Bind("Time Settings", UseRandomTimeScaleKey, false);
             MaximumTimeScale = Config.Bind("Time Settings", MaximumTimeScaleKey, 2f);
             MinimumTimeScale = Config.Bind("Time Settings", MinimumTimeScaleKey, 0.5f);
             NightVisionIntensity = Config.Bind("Player Settings", NightVisionIntensityKey, 1000f);
             NightVisionRange = Config.Bind("Player Settings", NightVisionRangeKey, 10000f);
+            SpeedMultiplier = Config.Bind("Player Settings", SpeedMultiplierKey, 1f);
+            MaxStaminaMultiplier = Config.Bind("Player Settings", MaxStaminaMultiplierKey, 1f);
+            StaminaRegenMultiplier = Config.Bind("Player Settings", StaminaRegenMultiplierKey, 1.5f);
 
             // Apply all of our patches
             Logger.LogInfo($"PluginName: {PluginName}, VersionString: {VersionString} is loading...");
@@ -236,6 +246,82 @@ namespace LethalCP_Vedici
                 string noticeTitle = "Modded Game";
                 string noticeBody = "Made with <3 by Stoichev";
                 HUDManager.Instance.DisplayTip(noticeTitle, noticeBody);
+            }
+        }
+
+        /// <summary>
+        /// Patch Stamina Multiplier
+        /// </summary>
+        [HarmonyPatch(typeof(PlayerControllerB), "Update")]
+        [HarmonyPrefix]
+        static void updatePlayerMovementPrefix(PlayerControllerB __instance)
+        {
+            //__instance.movementSpeed *= SpeedMultiplier.Value;
+            if (__instance.isPlayerControlled)
+            {
+                currentStaminaMeter = __instance.sprintMeter;
+            }
+        }
+
+        /// <summary>
+        /// Patch Stamina Multiplier
+        /// </summary>
+        [HarmonyPatch(typeof(PlayerControllerB), "Update")]
+        [HarmonyPostfix]
+        static void updatePlayerMovementPostfix(PlayerControllerB __instance)
+        {
+            //__instance.movementSpeed *= SpeedMultiplier.Value;
+            if (__instance.isPlayerControlled)
+            {
+                float x = __instance.sprintMeter - currentStaminaMeter;
+                if (x < 0f)
+                {
+                    LethalCP_VediciPlugin.Log.LogInfo($"Sprint Detected x: {x}. Meter: {__instance.sprintMeter}");
+                    __instance.sprintMeter = Mathf.Max(__instance.sprintMeter + x / MaxStaminaMultiplier.Value, 0f);
+                }
+                else if (x > 0f)
+                {
+                    LethalCP_VediciPlugin.Log.LogInfo($"Walk Detected x: {x}. Meter: {__instance.sprintMeter}");
+                    __instance.sprintMeter = Mathf.Min(__instance.sprintMeter + x * StaminaRegenMultiplier.Value, 1f);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Patch Stamina Multiplier
+        /// </summary>
+        [HarmonyPatch(typeof(PlayerControllerB), "LateUpdate")]
+        [HarmonyPrefix]
+        static void lateUpdatePlayerMovementPrefix(PlayerControllerB __instance)
+        {
+            //__instance.movementSpeed *= SpeedMultiplier.Value;
+            if (__instance.isPlayerControlled)
+            {
+                currentStaminaMeter = __instance.sprintMeter;
+            }
+        }
+
+        /// <summary>
+        /// Patch Stamina Multiplier
+        /// </summary>
+        [HarmonyPatch(typeof(PlayerControllerB), "LateUpdate")]
+        [HarmonyPostfix]
+        static void lateUpdatePlayerMovementPostfix(PlayerControllerB __instance)
+        {
+            //__instance.movementSpeed *= SpeedMultiplier.Value;
+            if (__instance.isPlayerControlled)
+            {
+                float x = __instance.sprintMeter - currentStaminaMeter;
+                if (x < 0f)
+                {
+                    LethalCP_VediciPlugin.Log.LogInfo($"Sprint Detected x: {x}. Meter: {__instance.sprintMeter}");
+                    __instance.sprintMeter = Mathf.Max(__instance.sprintMeter + x / MaxStaminaMultiplier.Value, 0f);
+                }
+                else if (x > 0f)
+                {
+                    LethalCP_VediciPlugin.Log.LogInfo($"Walk Detected x: {x}. Meter: {__instance.sprintMeter}");
+                    __instance.sprintMeter = Mathf.Min(__instance.sprintMeter + x * StaminaRegenMultiplier.Value, 1f);
+                }
             }
         }
 
