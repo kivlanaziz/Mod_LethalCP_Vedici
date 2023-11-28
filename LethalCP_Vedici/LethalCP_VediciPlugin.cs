@@ -63,6 +63,7 @@ namespace LethalCP_Vedici
         private static string CustomScrapAmountMultiplierKey = "Scrap Amount Multiplier";
         private static string CustomMapSizeMultiplierKey = "Map Size Multiplier";
         private static string UseCustomMapSettingsKey = "Toggle Custom Map Settings";
+        private static string EnableCustomDeadlineKey = "Toggle Custom Deadline";
 
         // Configuration entries. Static, so can be accessed directly elsewhere in code via
         // e.g.
@@ -83,6 +84,7 @@ namespace LethalCP_Vedici
         private static ConfigEntry<float> CustomScrapAmountMultiplier;
         private static ConfigEntry<float> CustomMapSizeMultiplier;
         private static ConfigEntry<bool> UseCustomMapSettings;
+        private static ConfigEntry<bool> EnableCustomDeadline;
         #endregion
 
         private static readonly Harmony Harmony = new Harmony(MyGUID);
@@ -95,6 +97,8 @@ namespace LethalCP_Vedici
         private static UnityEngine.Color nightVisionColor;
         private static bool isHost = true;
         private static float currentStaminaMeter;
+        private static SelectableLevel currentLevel;
+        private static bool resetCustomMultiplier = false;
         /// <summary>
         /// Initialise the configuration settings and patch methods
         /// </summary>
@@ -114,7 +118,8 @@ namespace LethalCP_Vedici
             UseCustomMapSettings = Config.Bind("Map Settings", UseCustomMapSettingsKey, false);
             CustomScrapAmountMultiplier = Config.Bind("Map Settings", CustomScrapAmountMultiplierKey, 1f);
             CustomScrapValueMultiplier = Config.Bind("Map Settings", CustomScrapValueMultiplierKey, 1f);
-            CustomMapSizeMultiplier = Config.Bind("Map Settings", CustomMapSizeMultiplierKey, 1f);
+            CustomMapSizeMultiplier = Config.Bind("Map Settings", CustomMapSizeMultiplierKey, 1f, "Be careful when modifying this value since it will make the game laggy");
+            EnableCustomDeadline = Config.Bind("Game Settings", EnableCustomDeadlineKey, false);
 
             // Apply all of our patches
             Logger.LogInfo($"PluginName: {PluginName}, VersionString: {VersionString} is loading...");
@@ -341,14 +346,35 @@ namespace LethalCP_Vedici
         [HarmonyPrefix]
         static void LoadNewLevelPrefixPatch(RoundManager __instance, SelectableLevel newLevel)
         {
+            currentLevel = newLevel;
             if (UseCustomMapSettings.Value)
             {
+                if (resetCustomMultiplier)
+                {
+                    LethalCP_VediciPlugin.Log.LogInfo("Resetting Custom Multiplier Value");
+                    __instance.scrapAmountMultiplier /= CustomScrapAmountMultiplier.Value;
+                    __instance.scrapValueMultiplier /= CustomScrapValueMultiplier.Value;
+                    __instance.mapSizeMultiplier /= CustomMapSizeMultiplier.Value;
+                }
+
                 __instance.scrapAmountMultiplier *= CustomScrapAmountMultiplier.Value;
                 __instance.scrapValueMultiplier *= CustomScrapValueMultiplier.Value;
                 __instance.mapSizeMultiplier *= CustomMapSizeMultiplier.Value;
+                resetCustomMultiplier = true;
             }
         }
 
+        [HarmonyPatch(typeof(TimeOfDay), nameof(TimeOfDay.MoveGlobalTime))]
+        [HarmonyPrefix]
+        static void InfiniteDeadline(ref float ___timeUntilDeadline)
+        {
+            if (!isHost) { return; }
+            if (EnableCustomDeadline.Value) 
+            {
+                ___timeUntilDeadline = 999;
+            }
+
+        }
         /// <summary>
         /// Method to listen to commands from text chat (require host)
         /// </summary>
