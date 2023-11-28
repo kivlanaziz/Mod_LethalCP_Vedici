@@ -25,6 +25,7 @@ using System.Reflection;
 using Unity.Netcode;
 using static System.Net.Mime.MediaTypeNames;
 using Steamworks.Ugc;
+using System.Xml.Schema;
 
 namespace LethalCP_Vedici
 {
@@ -287,6 +288,13 @@ namespace LethalCP_Vedici
                     noticeTitle = "Scan Result";
                     noticeBody = $"There are {totalItems} objects outside the ship, totalling at an approximate value of ${totalValue}.";
                 }
+                if (text.ToLower().Contains("player"))
+                {
+                    int totalPlayerAlive = 0, totalPlayerDead = 0;
+                    findTeamStatus(out totalPlayerAlive, out totalPlayerDead);
+                    noticeTitle = "Scan Result";
+                    noticeBody = $"There are {totalPlayerAlive} Player Alive and {totalPlayerDead} Player(s) Dead or Disconnected.";
+                }
                 // sends notice to user about what they have done
                 HUDManager.Instance.DisplayTip(noticeTitle, noticeBody);
 
@@ -343,6 +351,29 @@ namespace LethalCP_Vedici
                     num4 += array[num5].itemProperties.maxValue - array[num5].itemProperties.minValue;
                     totalValue += Mathf.Clamp(random.Next(array[num5].itemProperties.minValue, array[num5].itemProperties.maxValue), array[num5].scrapValue - 6 * num5, array[num5].scrapValue + 9 * num5);
                     totalItems++;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Method to find player status
+        /// </summary>
+        /// <param name="totalPlayerAlive"></param>
+        /// <param name="totalPlayerDead"></param>
+        private static void findTeamStatus(out int totalPlayerAlive, out int totalPlayerDead)
+        {
+            totalPlayerAlive = 0;
+            totalPlayerDead = 0;
+            PlayerControllerB[] array = UnityEngine.Object.FindObjectsOfType<PlayerControllerB>();
+            for (int num1 = 0; num1 < array.Length; num1++)
+            {
+                if ((array[num1].isPlayerDead || array[num1].disconnectedMidGame) && array[num1].isPlayerControlled)
+                {
+                    totalPlayerDead++;
+                }
+                else if (array[num1].isPlayerControlled)
+                {
+                    totalPlayerAlive++;
                 }
             }
         }
