@@ -42,7 +42,7 @@ namespace LethalCP_Vedici
         // 1.0.0
         private const string MyGUID = "com.kivlan.LethalCP_Vedici";
         private const string PluginName = "LethalCP_Vedici";
-        private const string VersionString = "1.0.5";
+        private const string VersionString = "1.0.6";
         #endregion
         #region config manager
         // Config entry key strings
@@ -59,6 +59,10 @@ namespace LethalCP_Vedici
         private static string SpeedMultiplierKey = "Sprint Speed Multiplier";
         private static string MaxStaminaMultiplierKey = "Max Stamina Multiplier";
         private static string StaminaRegenMultiplierKey = "Stamina Regen Multiplier";
+        private static string CustomScrapValueMultiplierKey = "Scrap Value Multiplier";
+        private static string CustomScrapAmountMultiplierKey = "Scrap Amount Multiplier";
+        private static string CustomMapSizeMultiplierKey = "Map Size Multiplier";
+        private static string UseCustomMapSettingsKey = "Toggle Custom Map Settings";
 
         // Configuration entries. Static, so can be accessed directly elsewhere in code via
         // e.g.
@@ -75,6 +79,10 @@ namespace LethalCP_Vedici
         private static ConfigEntry<float> SpeedMultiplier;
         private static ConfigEntry<float> MaxStaminaMultiplier;
         private static ConfigEntry<float> StaminaRegenMultiplier;
+        private static ConfigEntry<float> CustomScrapValueMultiplier;
+        private static ConfigEntry<float> CustomScrapAmountMultiplier;
+        private static ConfigEntry<float> CustomMapSizeMultiplier;
+        private static ConfigEntry<bool> UseCustomMapSettings;
         #endregion
 
         private static readonly Harmony Harmony = new Harmony(MyGUID);
@@ -103,6 +111,10 @@ namespace LethalCP_Vedici
             SpeedMultiplier = Config.Bind("Player Settings", SpeedMultiplierKey, 1f);
             MaxStaminaMultiplier = Config.Bind("Player Settings", MaxStaminaMultiplierKey, 1f);
             StaminaRegenMultiplier = Config.Bind("Player Settings", StaminaRegenMultiplierKey, 1.5f);
+            UseCustomMapSettings = Config.Bind("Map Settings", UseCustomMapSettingsKey, false);
+            CustomScrapAmountMultiplier = Config.Bind("Map Settings", CustomScrapAmountMultiplierKey, 1f);
+            CustomScrapValueMultiplier = Config.Bind("Map Settings", CustomScrapValueMultiplierKey, 1f);
+            CustomMapSizeMultiplier = Config.Bind("Map Settings", CustomMapSizeMultiplierKey, 1f);
 
             // Apply all of our patches
             Logger.LogInfo($"PluginName: {PluginName}, VersionString: {VersionString} is loading...");
@@ -322,6 +334,18 @@ namespace LethalCP_Vedici
                     //LethalCP_VediciPlugin.Log.LogInfo($"Walk Detected x: {x}. Meter: {__instance.sprintMeter}");
                     __instance.sprintMeter = Mathf.Min(__instance.sprintMeter + x * StaminaRegenMultiplier.Value, 1f);
                 }
+            }
+        }
+
+        [HarmonyPatch(typeof(RoundManager), "LoadNewLevel")]
+        [HarmonyPrefix]
+        static void LoadNewLevelPrefixPatch(RoundManager __instance, SelectableLevel newLevel)
+        {
+            if (UseCustomMapSettings.Value)
+            {
+                __instance.scrapAmountMultiplier *= CustomScrapAmountMultiplier.Value;
+                __instance.scrapValueMultiplier *= CustomScrapValueMultiplier.Value;
+                __instance.mapSizeMultiplier *= CustomMapSizeMultiplier.Value;
             }
         }
 
