@@ -42,7 +42,7 @@ namespace LethalCP_Vedici
         // 1.0.0
         private const string MyGUID = "com.kivlan.LethalCP_Vedici";
         private const string PluginName = "LethalCP_Vedici";
-        private const string VersionString = "1.0.2";
+        private const string VersionString = "1.0.4";
         #endregion
         #region config manager
         // Config entry key strings
@@ -294,6 +294,12 @@ namespace LethalCP_Vedici
                     findTeamStatus(out totalPlayerAlive, out totalPlayerDead);
                     noticeTitle = "Scan Result";
                     noticeBody = $"There are {totalPlayerAlive} Player Alive and {totalPlayerDead} Player(s) Dead or Disconnected.";
+                }
+                if (text.ToLower().Contains("time"))
+                {
+                    string currentTime = HUDManager.Instance.SetClock(TimeOfDay.Instance.normalizedTimeOfDay, TimeOfDay.Instance.numberOfHours, false);
+                    noticeTitle = "Scan Result";
+                    noticeBody = $"Time at: {currentTime}";
                 }
                 // sends notice to user about what they have done
                 HUDManager.Instance.DisplayTip(noticeTitle, noticeBody);
