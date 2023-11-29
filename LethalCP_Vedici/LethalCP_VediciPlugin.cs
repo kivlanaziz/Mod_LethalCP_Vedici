@@ -202,10 +202,12 @@ namespace LethalCP_Vedici
             defaultNightVisionIntensity = playerRef.nightVision.intensity;
             nightVisionColor = playerRef.nightVision.color;
             defaultNightVisionRange = playerRef.nightVision.range;
-
-            playerRef.nightVision.color = UnityEngine.Color.green;
-            playerRef.nightVision.intensity = 1000f;
-            playerRef.nightVision.range = 10000f;
+            if (cfgNightVision.Value)
+            {
+                playerRef.nightVision.color = UnityEngine.Color.green;
+                playerRef.nightVision.intensity = 1000f;
+                playerRef.nightVision.range = 10000f;
+            }
         }
 
         /// <summary>
