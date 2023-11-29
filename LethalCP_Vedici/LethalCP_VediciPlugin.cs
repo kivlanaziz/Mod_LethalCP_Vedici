@@ -42,7 +42,7 @@ namespace LethalCP_Vedici
         // 1.0.0
         private const string MyGUID = "com.kivlan.LethalCP_Vedici";
         private const string PluginName = "LethalCP_Vedici";
-        private const string VersionString = "1.0.6";
+        private const string VersionString = "1.0.7";
         #endregion
         #region config manager
         // Config entry key strings
@@ -59,6 +59,7 @@ namespace LethalCP_Vedici
         private static string SpeedMultiplierKey = "Sprint Speed Multiplier";
         private static string MaxStaminaMultiplierKey = "Max Stamina Multiplier";
         private static string StaminaRegenMultiplierKey = "Stamina Regen Multiplier";
+        private static string WeightStaminaMultiplierKey = "Weight Stamina Multiplier";
         private static string CustomScrapValueMultiplierKey = "Scrap Value Multiplier";
         private static string CustomScrapAmountMultiplierKey = "Scrap Amount Multiplier";
         private static string CustomMapSizeMultiplierKey = "Map Size Multiplier";
@@ -80,6 +81,7 @@ namespace LethalCP_Vedici
         private static ConfigEntry<float> SpeedMultiplier;
         private static ConfigEntry<float> MaxStaminaMultiplier;
         private static ConfigEntry<float> StaminaRegenMultiplier;
+        private static ConfigEntry<float> WeightStaminaMultiplier;
         private static ConfigEntry<float> CustomScrapValueMultiplier;
         private static ConfigEntry<float> CustomScrapAmountMultiplier;
         private static ConfigEntry<float> CustomMapSizeMultiplier;
@@ -97,6 +99,7 @@ namespace LethalCP_Vedici
         private static UnityEngine.Color nightVisionColor;
         private static bool isHost = true;
         private static float currentStaminaMeter;
+        private static float currentWeight;
         private static SelectableLevel currentLevel;
         private static bool resetCustomMultiplier = false;
         /// <summary>
@@ -115,6 +118,7 @@ namespace LethalCP_Vedici
             SpeedMultiplier = Config.Bind("Player Settings", SpeedMultiplierKey, 1f);
             MaxStaminaMultiplier = Config.Bind("Player Settings", MaxStaminaMultiplierKey, 1f);
             StaminaRegenMultiplier = Config.Bind("Player Settings", StaminaRegenMultiplierKey, 1.5f);
+            WeightStaminaMultiplier = Config.Bind("Player Settings", WeightStaminaMultiplierKey, 0.75f);
             UseCustomMapSettings = Config.Bind("Map Settings", UseCustomMapSettingsKey, false);
             CustomScrapAmountMultiplier = Config.Bind("Map Settings", CustomScrapAmountMultiplierKey, 1f);
             CustomScrapValueMultiplier = Config.Bind("Map Settings", CustomScrapValueMultiplierKey, 1f);
@@ -212,7 +216,7 @@ namespace LethalCP_Vedici
         static void updateNightVision()
         {
             //instead of enabling/disabling nightvision, set the variables
-            
+
             if (nightVision)
             {
                 playerRef.nightVision.color = UnityEngine.Color.green;
@@ -225,7 +229,7 @@ namespace LethalCP_Vedici
                 playerRef.nightVision.intensity = defaultNightVisionIntensity;
                 playerRef.nightVision.range = defaultNightVisionRange;
             }
-            // should always be on
+
             playerRef.nightVision.enabled = true;
         }
 
@@ -277,6 +281,8 @@ namespace LethalCP_Vedici
             if (__instance.isPlayerControlled)
             {
                 currentStaminaMeter = __instance.sprintMeter;
+                currentWeight = __instance.carryWeight;
+                __instance.carryWeight = Mathf.Max(__instance.carryWeight * WeightStaminaMultiplier.Value, 1f);
             }
         }
 
@@ -301,6 +307,7 @@ namespace LethalCP_Vedici
                     //LethalCP_VediciPlugin.Log.LogInfo($"Walk Detected x: {x}. Meter: {__instance.sprintMeter}");
                     __instance.sprintMeter = Mathf.Min(__instance.sprintMeter + x * StaminaRegenMultiplier.Value, 1f);
                 }
+                __instance.carryWeight = currentWeight;
             }
         }
 
@@ -315,6 +322,8 @@ namespace LethalCP_Vedici
             if (__instance.isPlayerControlled)
             {
                 currentStaminaMeter = __instance.sprintMeter;
+                currentWeight = __instance.carryWeight;
+                __instance.carryWeight = Mathf.Max(__instance.carryWeight * WeightStaminaMultiplier.Value, 1f);
             }
         }
 
@@ -339,6 +348,7 @@ namespace LethalCP_Vedici
                     //LethalCP_VediciPlugin.Log.LogInfo($"Walk Detected x: {x}. Meter: {__instance.sprintMeter}");
                     __instance.sprintMeter = Mathf.Min(__instance.sprintMeter + x * StaminaRegenMultiplier.Value, 1f);
                 }
+                __instance.carryWeight = currentWeight;
             }
         }
 
