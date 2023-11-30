@@ -42,7 +42,7 @@ namespace LethalCP_Vedici
         // 1.0.0
         private const string MyGUID = "com.kivlan.LethalCP_Vedici";
         private const string PluginName = "LethalCP_Vedici";
-        private const string VersionString = "1.0.7";
+        private const string VersionString = "1.0.8";
         #endregion
         #region config manager
         // Config entry key strings
@@ -70,38 +70,38 @@ namespace LethalCP_Vedici
         // e.g.
         // float myFloat = LethalCP_VediciPlugin.FloatExample.Value;
         // TODO Change this code or remove the code if not required.
-        private static ConfigEntry<bool> cfgNightVision;
-        private static ConfigEntry<bool> HideCommandMessages;
-        private static ConfigEntry<bool> CustomTimeScale;
-        private static ConfigEntry<bool> UseRandomTimeScale;
-        private static ConfigEntry<float> MaximumTimeScale;
-        private static ConfigEntry<float> MinimumTimeScale;
-        private static ConfigEntry<float> NightVisionIntensity;
-        private static ConfigEntry<float> NightVisionRange;
-        private static ConfigEntry<float> SpeedMultiplier;
-        private static ConfigEntry<float> MaxStaminaMultiplier;
-        private static ConfigEntry<float> StaminaRegenMultiplier;
-        private static ConfigEntry<float> WeightStaminaMultiplier;
-        private static ConfigEntry<float> CustomScrapValueMultiplier;
-        private static ConfigEntry<float> CustomScrapAmountMultiplier;
-        private static ConfigEntry<float> CustomMapSizeMultiplier;
-        private static ConfigEntry<bool> UseCustomMapSettings;
-        private static ConfigEntry<bool> EnableCustomDeadline;
+        public static ConfigEntry<bool> cfgNightVision;
+        public static ConfigEntry<bool> HideCommandMessages;
+        public static ConfigEntry<bool> CustomTimeScale;
+        public static ConfigEntry<bool> UseRandomTimeScale;
+        public static ConfigEntry<float> MaximumTimeScale;
+        public static ConfigEntry<float> MinimumTimeScale;
+        public static ConfigEntry<float> NightVisionIntensity;
+        public static ConfigEntry<float> NightVisionRange;
+        public static ConfigEntry<float> SpeedMultiplier;
+        public static ConfigEntry<float> MaxStaminaMultiplier;
+        public static ConfigEntry<float> StaminaRegenMultiplier;
+        public static ConfigEntry<float> WeightStaminaMultiplier;
+        public static ConfigEntry<float> CustomScrapValueMultiplier;
+        public static ConfigEntry<float> CustomScrapAmountMultiplier;
+        public static ConfigEntry<float> CustomMapSizeMultiplier;
+        public static ConfigEntry<bool> UseCustomMapSettings;
+        public static ConfigEntry<bool> EnableCustomDeadline;
         #endregion
 
         private static readonly Harmony Harmony = new Harmony(MyGUID);
         public static ManualLogSource Log = new ManualLogSource(PluginName);
 
-        private static PlayerControllerB playerRef;
-        private static bool nightVision;
-        private static float defaultNightVisionIntensity;
-        private static float defaultNightVisionRange;
-        private static UnityEngine.Color nightVisionColor;
-        private static bool isHost = true;
-        private static float currentStaminaMeter;
-        private static float currentWeight;
-        private static SelectableLevel currentLevel;
-        private static bool resetCustomMultiplier = false;
+        public static PlayerControllerB playerRef;
+        public static bool nightVision;
+        public static float defaultNightVisionIntensity;
+        public static float defaultNightVisionRange;
+        public static UnityEngine.Color nightVisionColor;
+        public static bool isHost = true;
+        public static float currentStaminaMeter;
+        public static float currentWeight;
+        public static SelectableLevel currentLevel;
+        public static bool resetCustomMultiplier = false;
         /// <summary>
         /// Initialise the configuration settings and patch methods
         /// </summary>
@@ -127,9 +127,7 @@ namespace LethalCP_Vedici
 
             // Apply all of our patches
             Logger.LogInfo($"PluginName: {PluginName}, VersionString: {VersionString} is loading...");
-            Harmony.PatchAll(typeof(LethalCP_VediciPlugin));
-            Harmony.PatchAll(typeof(PlayerControllerB));
-            Harmony.PatchAll(typeof(HUDManager));
+            Harmony.PatchAll();
             Logger.LogInfo($"PluginName: {PluginName}, VersionString: {VersionString} is loaded.");
 
             cfgNightVision.SettingChanged += nightVisionCFGChanged;
@@ -188,290 +186,11 @@ namespace LethalCP_Vedici
             }
         }
 
-        /// <summary>
-        /// Method to get the initial configuration of night vision
-        /// </summary>
-        /// <param name="__instance"></param>
-        [HarmonyPatch(typeof(PlayerControllerB), "Start")]
-        [HarmonyPrefix]
-        static void getNightVision(ref PlayerControllerB __instance)
-        {
-            playerRef = __instance;
-            nightVision = playerRef.nightVision.enabled;
-            // store nightvision values
-            defaultNightVisionIntensity = playerRef.nightVision.intensity;
-            nightVisionColor = playerRef.nightVision.color;
-            defaultNightVisionRange = playerRef.nightVision.range;
-            if (cfgNightVision.Value)
-            {
-                playerRef.nightVision.color = UnityEngine.Color.green;
-                playerRef.nightVision.intensity = 1000f;
-                playerRef.nightVision.range = 10000f;
-            }
-        }
-
-        /// <summary>
-        /// Method to update the night vision config based on the night vision status. (Updated per frame)
-        /// </summary>
-        [HarmonyPatch(typeof(PlayerControllerB), "SetNightVisionEnabled")]
-        [HarmonyPostfix]
-        static void updateNightVision()
-        {
-            //instead of enabling/disabling nightvision, set the variables
-
-            if (nightVision)
-            {
-                playerRef.nightVision.color = UnityEngine.Color.green;
-                playerRef.nightVision.intensity = NightVisionIntensity.Value;
-                playerRef.nightVision.range = NightVisionRange.Value;
-            }
-            else
-            {
-                playerRef.nightVision.color = nightVisionColor;
-                playerRef.nightVision.intensity = defaultNightVisionIntensity;
-                playerRef.nightVision.range = defaultNightVisionRange;
-            }
-
-            playerRef.nightVision.enabled = true;
-        }
-
-        /// <summary>
-        /// Method to update time scale using custom modifier
-        /// </summary>
-        /// <param name="__instance"></param>
-        [HarmonyPatch(typeof(TimeOfDay), "MoveGlobalTime")]
-        [HarmonyPostfix]
-        static void customizableTimeScale(TimeOfDay __instance)
-        {
-            if (isHost)
-            {
-                if (CustomTimeScale.Value)
-                {
-                    __instance.globalTimeSpeedMultiplier = MaximumTimeScale.Value;
-
-                    if (UseRandomTimeScale.Value)
-                    {
-                        __instance.globalTimeSpeedMultiplier = Random.Range(MinimumTimeScale.Value, MaximumTimeScale.Value);
-                    }
-                }
-            }
-        }
-
-        /// <summary>
-        /// Display text box on the start of the game
-        /// </summary>
-        [HarmonyPatch(typeof(StartOfRound), "openingDoorsSequence")]
-        [HarmonyPostfix]
-        static void customOpeningScreen()
-        {
-            if (isHost)
-            {
-                string noticeTitle = "Modded Game";
-                string noticeBody = "Made with <3 by Stoichev";
-                HUDManager.Instance.DisplayTip(noticeTitle, noticeBody);
-            }
-        }
-
-        /// <summary>
-        /// Patch Stamina Multiplier
-        /// </summary>
-        [HarmonyPatch(typeof(PlayerControllerB), "Update")]
-        [HarmonyPrefix]
-        static void updatePlayerMovementPrefix(PlayerControllerB __instance)
-        {
-            //__instance.movementSpeed *= SpeedMultiplier.Value;
-            if (__instance.isPlayerControlled)
-            {
-                currentStaminaMeter = __instance.sprintMeter;
-                currentWeight = __instance.carryWeight;
-                __instance.carryWeight = Mathf.Max(__instance.carryWeight * WeightStaminaMultiplier.Value, 1f);
-            }
-        }
-
-        /// <summary>
-        /// Patch Stamina Multiplier
-        /// </summary>
-        [HarmonyPatch(typeof(PlayerControllerB), "Update")]
-        [HarmonyPostfix]
-        static void updatePlayerMovementPostfix(PlayerControllerB __instance)
-        {
-            //__instance.movementSpeed *= SpeedMultiplier.Value;
-            if (__instance.isPlayerControlled)
-            {
-                float x = __instance.sprintMeter - currentStaminaMeter;
-                if (x < 0f)
-                {
-                    //LethalCP_VediciPlugin.Log.LogInfo($"Sprint Detected x: {x}. Meter: {__instance.sprintMeter}");
-                    __instance.sprintMeter = Mathf.Max(__instance.sprintMeter + x / MaxStaminaMultiplier.Value, 0f);
-                }
-                else if (x > 0f)
-                {
-                    //LethalCP_VediciPlugin.Log.LogInfo($"Walk Detected x: {x}. Meter: {__instance.sprintMeter}");
-                    __instance.sprintMeter = Mathf.Min(__instance.sprintMeter + x * StaminaRegenMultiplier.Value, 1f);
-                }
-                __instance.carryWeight = currentWeight;
-            }
-        }
-
-        /// <summary>
-        /// Patch Stamina Multiplier
-        /// </summary>
-        [HarmonyPatch(typeof(PlayerControllerB), "LateUpdate")]
-        [HarmonyPrefix]
-        static void lateUpdatePlayerMovementPrefix(PlayerControllerB __instance)
-        {
-            //__instance.movementSpeed *= SpeedMultiplier.Value;
-            if (__instance.isPlayerControlled)
-            {
-                currentStaminaMeter = __instance.sprintMeter;
-                currentWeight = __instance.carryWeight;
-                __instance.carryWeight = Mathf.Max(__instance.carryWeight * WeightStaminaMultiplier.Value, 1f);
-            }
-        }
-
-        /// <summary>
-        /// Patch Stamina Multiplier
-        /// </summary>
-        [HarmonyPatch(typeof(PlayerControllerB), "LateUpdate")]
-        [HarmonyPostfix]
-        static void lateUpdatePlayerMovementPostfix(PlayerControllerB __instance)
-        {
-            //__instance.movementSpeed *= SpeedMultiplier.Value;
-            if (__instance.isPlayerControlled)
-            {
-                float x = __instance.sprintMeter - currentStaminaMeter;
-                if (x < 0f)
-                {
-                    //LethalCP_VediciPlugin.Log.LogInfo($"Sprint Detected x: {x}. Meter: {__instance.sprintMeter}");
-                    __instance.sprintMeter = Mathf.Max(__instance.sprintMeter + x / MaxStaminaMultiplier.Value, 0f);
-                }
-                else if (x > 0f)
-                {
-                    //LethalCP_VediciPlugin.Log.LogInfo($"Walk Detected x: {x}. Meter: {__instance.sprintMeter}");
-                    __instance.sprintMeter = Mathf.Min(__instance.sprintMeter + x * StaminaRegenMultiplier.Value, 1f);
-                }
-                __instance.carryWeight = currentWeight;
-            }
-        }
-
-        [HarmonyPatch(typeof(RoundManager), "LoadNewLevel")]
-        [HarmonyPrefix]
-        static void LoadNewLevelPrefixPatch(RoundManager __instance, SelectableLevel newLevel)
-        {
-            currentLevel = newLevel;
-            if (UseCustomMapSettings.Value)
-            {
-                if (resetCustomMultiplier)
-                {
-                    LethalCP_VediciPlugin.Log.LogInfo("Resetting Custom Multiplier Value");
-                    __instance.scrapAmountMultiplier /= CustomScrapAmountMultiplier.Value;
-                    __instance.scrapValueMultiplier /= CustomScrapValueMultiplier.Value;
-                    __instance.mapSizeMultiplier /= CustomMapSizeMultiplier.Value;
-                }
-
-                __instance.scrapAmountMultiplier *= CustomScrapAmountMultiplier.Value;
-                __instance.scrapValueMultiplier *= CustomScrapValueMultiplier.Value;
-                __instance.mapSizeMultiplier *= CustomMapSizeMultiplier.Value;
-                resetCustomMultiplier = true;
-            }
-        }
-
-        [HarmonyPatch(typeof(TimeOfDay), nameof(TimeOfDay.MoveGlobalTime))]
-        [HarmonyPrefix]
-        static void InfiniteDeadline(ref float ___timeUntilDeadline)
-        {
-            if (!isHost) { return; }
-            if (EnableCustomDeadline.Value) 
-            {
-                ___timeUntilDeadline = 999;
-            }
-
-        }
-        /// <summary>
-        /// Method to listen to commands from text chat (require host)
-        /// </summary>
-        /// <param name="__instance"></param>
-        [HarmonyPatch(typeof(HUDManager), "SubmitChat_performed")]
-        [HarmonyPrefix]
-        static void chatCommand(HUDManager __instance)
-        {
-            string text = __instance.chatTextField.text;
-            // make prefix even if one doesn't exist
-            string tempPrefix = "/";
-            LethalCP_VediciPlugin.Log.LogInfo(text);
-
-            // check if prefix is utilized
-            if (text.ToLower().StartsWith(tempPrefix.ToLower()))
-            {
-                string noticeTitle = "Default Title";
-                string noticeBody = "Default Body";
-
-                if (!isHost)
-                {
-                    noticeTitle = "Command";
-                    noticeBody = "Unable to send command since you are not host.";
-                    HUDManager.Instance.DisplayTip(noticeTitle, noticeBody);
-                    if (HideCommandMessages.Value)
-                    {
-                        __instance.chatTextField.text = "";
-                    }
-                    return;
-                }
-                if (text.ToLower().Contains("night") || text.ToLower().Contains("vision"))
-                {
-                    if (toggleNightVision())
-                    {
-                        noticeBody = "Enabled Night Vision";
-                    }
-                    else
-                    {
-                        noticeBody = "Disabled Night Vision";
-                    }
-                    noticeTitle = "Night Vision";
-                }
-                if (text.ToLower().Contains("scan"))
-                {
-                    int totalItems = 0, totalValue = 0;
-                    findItemsOutsideShip(out totalItems, out totalValue);
-                    noticeTitle = "Scan Result";
-                    noticeBody = $"There are {totalItems} objects outside the ship, totalling at an approximate value of ${totalValue}.";
-                }
-                if (text.ToLower().Contains("player"))
-                {
-                    int totalPlayerAlive = 0, totalPlayerDead = 0;
-                    findTeamStatus(out totalPlayerAlive, out totalPlayerDead);
-                    noticeTitle = "Scan Result";
-                    noticeBody = $"There are {totalPlayerAlive} Player Alive and {totalPlayerDead} Player(s) Dead or Disconnected.";
-                }
-                if (text.ToLower().Contains("time"))
-                {
-                    string currentTime = HUDManager.Instance.SetClock(TimeOfDay.Instance.normalizedTimeOfDay, TimeOfDay.Instance.numberOfHours, false);
-                    noticeTitle = "Scan Result";
-                    noticeBody = $"Time at: {currentTime}";
-                }
-                if (text.ToLower().Contains("countenemy"))
-                {
-                    int approximateEnemy = UnityEngine.Object.FindObjectsOfType<EnemyAI>().Count();
-                    noticeTitle = "Scan Result";
-                    noticeBody = $"There are approximately {approximateEnemy} enemy detected! (includes docile, turret & landmine)";
-                }
-                // sends notice to user about what they have done
-                HUDManager.Instance.DisplayTip(noticeTitle, noticeBody);
-
-                // ensures value is hidden if set but path doesn't hide it
-                if (HideCommandMessages.Value)
-                {
-                    __instance.chatTextField.text = "";
-                }
-                return;
-            }
-        }
-
         #region internal method
         /// <summary>
         /// Method to toggle night vision status
         /// </summary>
-        private static bool toggleNightVision()
+        public static bool toggleNightVision()
         {
 
             if (isHost)
@@ -490,52 +209,6 @@ namespace LethalCP_Vedici
             }
 
             return nightVision;
-        }
-
-        /// <summary>
-        /// Method to find grabable items outside ship
-        /// </summary>
-        /// <param name="totalItems"></param>
-        /// <param name="totalValue"></param>
-        private static void findItemsOutsideShip(out int totalItems, out int totalValue)
-        {
-            System.Random random = new System.Random(StartOfRound.Instance.randomMapSeed + 91);
-            totalValue = 0;
-            totalItems = 0;
-            int num4 = 0;
-            GrabbableObject[] array = UnityEngine.Object.FindObjectsOfType<GrabbableObject>();
-            for (int num5 = 0; num5 < array.Length; num5++)
-            {
-                if (array[num5].itemProperties.isScrap && !array[num5].isInShipRoom && !array[num5].isInElevator)
-                {
-                    num4 += array[num5].itemProperties.maxValue - array[num5].itemProperties.minValue;
-                    totalValue += Mathf.Clamp(random.Next(array[num5].itemProperties.minValue, array[num5].itemProperties.maxValue), array[num5].scrapValue - 6 * num5, array[num5].scrapValue + 9 * num5);
-                    totalItems++;
-                }
-            }
-        }
-
-        /// <summary>
-        /// Method to find player status
-        /// </summary>
-        /// <param name="totalPlayerAlive"></param>
-        /// <param name="totalPlayerDead"></param>
-        private static void findTeamStatus(out int totalPlayerAlive, out int totalPlayerDead)
-        {
-            totalPlayerAlive = 0;
-            totalPlayerDead = 0;
-            PlayerControllerB[] array = UnityEngine.Object.FindObjectsOfType<PlayerControllerB>();
-            for (int num1 = 0; num1 < array.Length; num1++)
-            {
-                if ((array[num1].isPlayerDead || array[num1].disconnectedMidGame) && array[num1].isPlayerControlled)
-                {
-                    totalPlayerDead++;
-                }
-                else if (array[num1].isPlayerControlled)
-                {
-                    totalPlayerAlive++;
-                }
-            }
         }
         #endregion
     }
